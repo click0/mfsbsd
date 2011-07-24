@@ -195,7 +195,7 @@ for DEV in ${DEVS}; do
 		exit 1
 	fi
 	if [ -n "${SWAP}" ]; then
-		if ! /sbin/gpart add -t freebsd-swap -s "${SWAP}" ${DEV} > /dev/null; then
+		if ! /sbin/gpart add -t freebsd-swap -l swap-${DEV} -s "${SWAP}" ${DEV} > /dev/null; then
 			echo " error"
 			exit 1
 		fi
@@ -207,7 +207,7 @@ for DEV in ${DEVS}; do
 			FSWAP=${SWAPPART}
 		fi
 	fi
-	if ! /sbin/gpart add -t freebsd-zfs ${SZPART} ${DEV} > /dev/null; then
+	if ! /sbin/gpart add -t freebsd-zfs -l disk-${DEV} ${SZPART} ${DEV} > /dev/null; then
 		echo " error"
 		exit 1
 	fi
@@ -236,10 +236,8 @@ for DEV in ${DEVS}; do
 		exit 1
 	fi
 
-	GPART=`/sbin/glabel list ${DEV}p${PART} | /usr/bin/grep gptid | /usr/bin/awk -F"gptid/" '{ print "gptid/" $2 }'`
-
-	GPARTS="${GPARTS} ${GPART}"
-	PARTS="${PARTS} ${DEV}p${PART}"
+	GPART=`/sbin/glabel list ${DEV}p${PART} | /usr/bin/grep gpt | /usr/bin/awk -F"Name: gpt/" '{ print "gpt/" $2 }'`
+	PARTS="${PARTS} ${GPART}" 
 done
 
 echo -n "Creating ZFS pool ${POOL} on${PARTS} ..."
@@ -268,7 +266,7 @@ if [ "${LZJB}" = "1" ]; then
 fi
 
 echo -n "Creating ${POOL} root partition:"
-if ! /sbin/zfs create -o mountpoint=${ROOTMNT} ${POOL}/root > /dev/null 2> /dev/null; then
+if ! /sbin/zfs create -o mountpoint=${ROOTMNT} ${POOL} > /dev/null 2> /dev/null; then
 	echo " error"
 	exit 1
 fi
@@ -280,7 +278,7 @@ for FS in ${FS_LIST}; do
 	else
 		MNTPT=
 	fi
-	if ! /sbin/zfs create ${MNTPT} ${POOL}/root/${FS} > /dev/null 2> /dev/null; then
+	if ! /sbin/zfs create ${MNTPT} ${POOL}/${FS} > /dev/null 2> /dev/null; then
 		echo " error"
 		exit 1
 	fi
@@ -288,7 +286,7 @@ for FS in ${FS_LIST}; do
 done
 echo " ... done"
 echo -n "Setting bootfs for ${POOL} to ${POOL}/root ..."
-if ! /sbin/zpool set bootfs=${POOL}/root ${POOL} > /dev/null 2> /dev/null; then
+if ! /sbin/zpool set bootfs=${POOL} ${POOL} > /dev/null 2> /dev/null; then
 	echo " error"
 	exit 1
 fi
@@ -299,14 +297,14 @@ echo " done"
 if [ "${LEGACY}" = "1" ]; then
 	echo -n "Mounting ${POOL} on ${MNT} ..."
 	/bin/mkdir -p ${MNT}
-	if ! /sbin/mount -t zfs ${POOL}/root ${MNT} > /dev/null 2> /dev/null; then
-		echo " error mounting pool/root"
+	if ! /sbin/mount -t zfs ${POOL} ${MNT} > /dev/null 2> /dev/null; then
+		echo " error mounting pool"
 		exit 1
 	fi
 	for FS in ${FS_LIST}; do
 		/bin/mkdir -p ${MNT}/${FS}
-		if ! /sbin/mount -t zfs ${POOL}/root/${FS} ${MNT}/${FS} > /dev/null 2> /dev/null; then
-			echo " error mounting ${POOL}/root/${FS}"
+		if ! /sbin/mount -t zfs ${POOL}/${FS} ${MNT}/${FS} > /dev/null 2> /dev/null; then
+			echo " error mounting ${POOL}/${FS}"
 			exit 1
 		fi
 	done
@@ -331,7 +329,7 @@ echo " done"
 
 echo -n "Writing /boot/loader.conf..."
 echo "zfs_load=\"YES\"" > ${MNT}/boot/loader.conf
-echo "vfs.root.mountfrom=\"zfs:${POOL}/root\"" >> ${MNT}/boot/loader.conf
+echo "vfs.root.mountfrom=\"zfs:${POOL}\"" >> ${MNT}/boot/loader.conf
 echo " done"
 
 # Write fstab if swap or legacy
@@ -340,7 +338,7 @@ rm -f ${MNT}/etc/fstab
 touch ${MNT}/etc/fstab
 if [ -n "${FSWAP}" -o "${LEGACY}" = "1" ]; then
 	if [ -n "${FSWAP}" ]; then
-		echo "/dev/${FSWAP} none swap sw 0 0" > ${MNT}/etc/fstab
+		echo "/dev/gpt/swap-${DEV} none swap sw 0 0" > ${MNT}/etc/fstab
 	fi
 	if [ "${LEGACY}" = "1" ]; then
 		for FS in ${FS_LIST}; do
@@ -370,7 +368,7 @@ if ! /sbin/zpool import ${ALTROOT} ${POOL} > /dev/null 2> /dev/null; then
 	exit 1
 fi
 if [ -n "${LEGACY}" ]; then
-	if ! /sbin/mount -t zfs ${POOL}/root ${MNT} > /dev/null 2> /dev/null; then
+	if ! /sbin/mount -t zfs ${POOL} ${MNT} > /dev/null 2> /dev/null; then
 		echo " error mounting ${POOL}/root"
 		exit 1
 	fi

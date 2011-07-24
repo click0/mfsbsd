@@ -127,7 +127,7 @@ for DEV in ${DEVS}; do
 		echo "Error: /dev/${DEV} already contains a partition table."
 		echo ""
 		/sbin/gpart show $DEV
-		echo "You may erase the partition table manually with the destroygeom command"
+		echo "You may erase the partition table manually with the destroy geom command"
 		exit 1
 	fi
 done

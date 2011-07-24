@@ -4,7 +4,7 @@
 # mfsBSD ZFS install script
 # Copyright (c) 2011 Martin Matuska <mm at FreeBSD.org>
 #
-FS_LIST="var tmp"
+FS_LIST="var usr tmp"
 
 usage() {
 	echo "Usage: $0 [-h] -d geom_provider [-d geom_provider ...] -t archive_file [-r mirror|raidz] [-m mount_point] [-p zfs_pool_name] [-V zfs_pool_version] [-s swap_partition_size] [-z zfs_partition_size] [-c] [-l] [-4]"
@@ -285,7 +285,7 @@ for FS in ${FS_LIST}; do
 	echo -n " ${FS}"
 done
 echo " ... done"
-echo -n "Setting bootfs for ${POOL} to ${POOL}/root ..."
+echo -n "Setting bootfs for ${POOL} to ${POOL} ..."
 if ! /sbin/zpool set bootfs=${POOL} ${POOL} > /dev/null 2> /dev/null; then
 	echo " error"
 	exit 1
